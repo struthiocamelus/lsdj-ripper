@@ -1,18 +1,22 @@
 mod wav_audio;
 
 use clap;
-use clap::{Arg, ArgAction, Command};
+use clap::{Arg, Command};
 use device::Device;
 use rboy;
 use rboy::KeypadKey::*;
 use rboy::{KeypadKey, device};
+#[cfg(feature = "spinner")]
 use spinner;
+#[cfg(feature = "spinner")]
 use spinner::SpinnerBuilder;
 use std::fs::File;
 use std::io::Read;
 
 const TICKS_PER_SECOND: u32 = 4_194_304;
+#[cfg(feature = "png")]
 const SCREEN_WIDTH: u32 = 160;
+#[cfg(feature = "png")]
 const SCREEN_HEIGHT: u32 = 144;
 
 fn main() {
@@ -52,8 +56,9 @@ fn main() {
                 .help("Length in seconds to record")
                 .default_value("120")
                 .value_parser(clap::value_parser!(u32)),
-        )
-        .arg(
+        );
+    #[cfg(feature = "png")]
+        command.arg(
             Arg::new("screen-capture")
                 .short('c')
                 .long("screen-capture")
@@ -67,6 +72,7 @@ fn main() {
     let outfile = matches.get_one::<String>("outfile").unwrap().clone();
     let sample_rate = matches.get_one::<u32>("sample-rate").unwrap().to_owned();
     let length = matches.get_one::<u32>("length").unwrap().to_owned();
+    #[cfg(feature = "png")]
     let screen_capture = matches.get_flag("screen-capture").to_owned();
 
     let mut romfile = Vec::new();
@@ -88,9 +94,10 @@ fn main() {
     device.enable_audio(wav_audio::Player::boxed_new(outfile, sample_rate), true);
     // startup sequence
     println!("Loading song...");
-    device_wait(&mut device, 3f32);
+    device_wait(&mut device, 10.0);
     load_song(&mut device);
     println!("Loaded! Playing song");
+    #[cfg(feature = "png")]
     if screen_capture {
         let mut encoder = png::Encoder::new(
             File::create("screen.png").expect("Unable to open screenshot file for writing"),
@@ -104,6 +111,7 @@ fn main() {
             .write_image_data(&device.get_gpu_data())
             .expect("Unable to write image data");
     }
+    #[cfg(feature = "spinner")]
     let spinner = SpinnerBuilder::new("Running emulator...".into())
         .spinner(Vec::from(["-", "\\", "|", "/"]))
         .start();
@@ -112,11 +120,18 @@ fn main() {
     key_press(&mut device, Start, 0.1);
     while ticks < max {
         ticks += device.do_cycle();
-        let percent = ((ticks as f32 / max as f32) * 100.0).round() as u32;
-        spinner.update(format!("Running emulator: steps: {:2}%...", percent));
+        #[cfg(feature = "spinner")]
+        {
+            let percent = ((ticks as f32 / max as f32) * 100.0).round() as u32;
+            spinner.update(format!("Running emulator: steps: {:2}%...", percent));
+        }
     }
-    spinner.update("Running emulator: steps: 100%...".to_owned());
-    spinner.close();
+    #[cfg(feature = "spinner")]
+    {
+        spinner.update("Running emulator: steps: 100%...".to_owned());
+        spinner.close();
+    }
+    println!();
 }
 
 fn device_wait(device: &mut Device, seconds: f32) {

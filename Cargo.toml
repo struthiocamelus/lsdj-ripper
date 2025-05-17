@@ -1,6 +1,6 @@
 [package]
 name = "lsdj-ripper"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["ostrich <me@justostrich.com>"]
 description = "Command line tool to rip wav files from LSDJ SRAM dumps"
@@ -8,6 +8,6 @@ description = "Command line tool to rip wav files from LSDJ SRAM dumps"
 [dependencies]
 "rboy" = { git = "https://github.com/mvdnes/rboy.git", rev = "d8acd226"}
 "clap" = { version = "4.5.38", features = ["env"] }
-"spinner" = "0.5.0"
 "wavers" = "1.5.1"
-"png" = "0.18.0-rc"
+"spinner" = { version = "0.5.0", optional = true }
+"png" = { version= "0.18.0-rc", optional = true }
