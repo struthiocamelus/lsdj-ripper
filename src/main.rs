@@ -1,6 +1,7 @@
 mod wav_audio;
 
 use clap;
+use lsdj;
 #[cfg(feature = "png")]
 use clap::ArgAction;
 use clap::{Arg, Command};
@@ -13,8 +14,12 @@ use spinner;
 #[cfg(feature = "spinner")]
 use spinner::SpinnerBuilder;
 use std::fs::File;
-use std::io::{Read, Write};
+#[allow(unused_imports)] // Write is only used when spinner is disabled.
+use std::io::{Write};
+use std::io::{BufWriter, Read};
 use std::time::SystemTime;
+use lsdj::fs::{File as LsdjFile};
+use lsdj::lsdsng::LsdSng;
 
 const TICKS_PER_SECOND: u32 = 4_194_304;
 
@@ -24,6 +29,7 @@ const SCREEN_WIDTH: u32 = 160;
 const SCREEN_HEIGHT: u32 = 144;
 
 fn main() {
+    #[allow(unused_mut)] // Required by features.
     let mut command = Command::new("lsdj-ripper")
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
@@ -36,8 +42,8 @@ fn main() {
                 .required(true),
         )
         .arg(
-            Arg::new("save")
-                .help("Save file to rip from")
+            Arg::new("input")
+                .help("Save file or lsdsng to rip from")
                 .required(true),
         )
         .arg(
@@ -74,7 +80,7 @@ fn main() {
     }
     let matches = command.get_matches();
     let rom = matches.get_one::<String>("lsdj").unwrap().as_str();
-    let save = matches.get_one::<String>("save").unwrap().clone();
+    let save = matches.get_one::<String>("input").unwrap().clone();
     let outfile = matches.get_one::<String>("outfile").unwrap().clone();
     let sample_rate = matches.get_one::<u32>("sample-rate").unwrap().to_owned();
     let length = matches.get_one::<u32>("length").unwrap().to_owned();
@@ -90,31 +96,33 @@ fn main() {
         Device::new_cgb_from_buffer(romfile, false, None).expect("Failed to create device");
 
     let mut save_buf = Vec::new();
-    File::open(save)
-        .expect("Failed to open save file")
-        .read_to_end(&mut save_buf)
-        .expect("Failed to read save file");
-
+    let mut needs_load = true;
+    if save.ends_with(".sav") {
+        File::open(&save)
+            .expect("Failed to open save file")
+            .read_to_end(&mut save_buf)
+            .expect("Failed to read save file");
+    } else if save.ends_with(".lsdsng") {
+        needs_load = false;
+        let sng = LsdSng::from_path(save)
+            .expect("Failed to load save file");
+        let mut sram = lsdj::sram::SRam::new();
+        sram.working_memory_song = sng.decompress().unwrap();
+        let writer = BufWriter::new(&mut save_buf);
+        sram.to_writer(writer).expect("Failed to write save file");
+    }
     device.loadram(&save_buf).expect("Failed to load save file");
     device.enable_audio(wav_audio::Player::boxed_new(outfile, sample_rate), true);
     // startup sequence
     println!("Loading song...");
-    device_wait(&mut device, 10.0);
-    load_song(&mut device);
+    device_wait(&mut device, 20.0);
+    if needs_load {
+        load_song(&mut device);
+    }
     println!("Loaded! Playing song...");
     #[cfg(feature = "png")]
     if screen_capture {
-        let mut encoder = png::Encoder::new(
-            File::create("screen.png").expect("Unable to open screenshot file for writing"),
-            SCREEN_WIDTH,
-            SCREEN_HEIGHT,
-        );
-        encoder.set_color(png::ColorType::Rgb);
-        encoder
-            .write_header()
-            .expect("Unable to write header")
-            .write_image_data(&device.get_gpu_data())
-            .expect("Unable to write image data");
+        take_screenshot(&mut device, "screen.png")
     }
     #[cfg(feature = "spinner")]
     let spinner = SpinnerBuilder::new("Running emulator...".into())
@@ -157,7 +165,7 @@ fn device_wait(device: &mut Device, seconds: f32) {
     }
 }
 
-fn many_key_press(device: &mut Device, keys: Vec<KeypadKey>, length: f32) {
+fn multi_key_press(device: &mut Device, keys: Vec<KeypadKey>, length: f32) {
     keys.iter().for_each(|key| {
         device.keydown(key.to_owned());
     });
@@ -168,20 +176,38 @@ fn many_key_press(device: &mut Device, keys: Vec<KeypadKey>, length: f32) {
 }
 
 fn key_press(device: &mut Device, key: KeypadKey, length: f32) {
-    many_key_press(device, Vec::from([key]), length);
+    multi_key_press(device, Vec::from([key]), length);
 }
 
 fn load_song(device: &mut Device) {
-    many_key_press(device, Vec::from([Select, Up]), 0.1);
+    multi_key_press(device, Vec::from([Select, Up]), 0.1);
+    device_wait(device, 1.0);
     key_press(device, Down, 3.0);
     key_press(device, A, 0.1);
+    device_wait(device, 1.0);
     key_press(device, A, 0.1);
     key_press(device, Up, 5.0);
+    device_wait(device, 1.0);
     // Load song.
     key_press(device, A, 0.1);
+    device_wait(device, 1.0);
     // Discard changes.
     key_press(device, Left, 0.1);
     key_press(device, A, 0.1);
     device_wait(device, 10.0);
-    many_key_press(device, Vec::from([Select, Down]), 1.0);
+}
+
+#[cfg(feature = "png")]
+fn take_screenshot(device: &mut Device, filename: &str) {
+    let mut encoder = png::Encoder::new(
+        File::create(filename).expect("Unable to open screenshot file for writing"),
+        SCREEN_WIDTH,
+        SCREEN_HEIGHT,
+    );
+    encoder.set_color(png::ColorType::Rgb);
+    encoder
+        .write_header()
+        .expect("Unable to write header")
+        .write_image_data(&device.get_gpu_data())
+        .expect("Unable to write image data");
 }
