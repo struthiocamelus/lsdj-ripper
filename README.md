@@ -1,5 +1,31 @@
 # LSDJ-Ripper
 
+## Introduction
+
+```
+Command line tool to rip wav files from LSDJ SRAM dumps
+
+Usage: lsdj-ripper [OPTIONS] -l <lsdj> <input>
+
+Arguments:
+  <input>  Save file or lsdsng to rip from
+
+Options:
+  -l <lsdj>                        LSDJ rom [env: LSDJ_ROM=/Users/operator/Downloads/lsdj9_4_0-stable/lsdj9_4_0.gb]
+  -o <outfile>                     Output filename [default: out.wav]
+  -s, --sample-rate <sample-rate>  [default: 48000]
+  -t, --time <length>              Length in seconds to record [default: 120]
+  -c, --screen-capture             Capture the screen after loading the song
+  -h, --help                       Print help
+  -V, --version                    Print version
+```
+
+If you specify an `.lsdsng` file, it will be loaded into the active workspace and played from the start.
+
+If you specify a `.sav` file, the first saved song in your `.sav` will be loaded.
+
+This process is non-mutating, so your `.sav` file will still be good afterwards.
+
 ## Installation
 
 1. Have Cargo.
@@ -31,7 +57,16 @@ $ lsdj-ripper -t 60 my-save.sav # Capture for 60 seconds
 # You can collect a screenshot of the song before capturing, if the "PNG" feature is enabled
 $ cargo install --git https://github.com/struthiocamelus/lsdj-ripper -F png
 $ lsdj-ripper -c -t 60 my-save.sav
+# You can even load `.lsdsng` files
+$ lsdj-ripper my-song.lsdsng
 # Add `-F spinner` to get a cool terminal spinner as well
+```
+
+```
+Loading song...
+Loaded! Playing song...
+...............................................
+Finished exporting! Rendered 120 seconds in 2s realtime.
 ```
 
 ## Caveats
