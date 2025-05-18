@@ -437,8 +437,9 @@ checksum = "cd945864f07fe9f5371a27ad7b52a172b4b499999f1d97574c9fa68373937e12"
 
 [[package]]
 name = "lsdj"
-version = "0.1.0"
-source = "git+https://github.com/struthiocamelus/lsdj-rs.git?rev=647fe7c#647fe7ccba0fd8d4fec0252cfc5d5dc56f35666b"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b88ec88d71fd634eb4e4bbe76fde31d733d4cbe99479e667ae58bfd4b20e566c"
 dependencies = [
  "system-interface",
  "thiserror",
@@ -447,7 +448,7 @@ dependencies = [
 
 [[package]]
 name = "lsdj-ripper"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "clap",
  "lsdj",

@@ -1,6 +1,6 @@
 [package]
 name = "lsdj-ripper"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 authors = ["ostrich <me@justostrich.com>"]
 description = "Command line tool to rip wav files from LSDJ SRAM dumps"
@@ -9,7 +9,6 @@ description = "Command line tool to rip wav files from LSDJ SRAM dumps"
 "rboy" = { git = "https://github.com/mvdnes/rboy.git", rev = "d8acd226"}
 "clap" = { version = "4.5.38", features = ["env"] }
 "wavers" = "1.5.1"
-# TODO: Revert to canonical when fix merges: https://github.com/stijnfrishert/lsdj-rs/pull/2
-"lsdj" = { git = "https://github.com/struthiocamelus/lsdj-rs.git", rev="647fe7c" }
+"lsdj" = "0.1.0"
 "spinner" = { version = "0.5.0", optional = true }
 "png" = { version= "0.18.0-rc", optional = true }
