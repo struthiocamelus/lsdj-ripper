@@ -1,6 +1,8 @@
 mod wav_audio;
 
 use clap;
+#[cfg(feature = "png")]
+use clap::ArgAction;
 use clap::{Arg, Command};
 use device::Device;
 use rboy;
@@ -11,16 +13,18 @@ use spinner;
 #[cfg(feature = "spinner")]
 use spinner::SpinnerBuilder;
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Write};
+use std::time::SystemTime;
 
 const TICKS_PER_SECOND: u32 = 4_194_304;
+
 #[cfg(feature = "png")]
 const SCREEN_WIDTH: u32 = 160;
 #[cfg(feature = "png")]
 const SCREEN_HEIGHT: u32 = 144;
 
 fn main() {
-    let command = Command::new("lsdj-ripper")
+    let mut command = Command::new("lsdj-ripper")
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
@@ -58,7 +62,8 @@ fn main() {
                 .value_parser(clap::value_parser!(u32)),
         );
     #[cfg(feature = "png")]
-        command.arg(
+    {
+        command = command.arg(
             Arg::new("screen-capture")
                 .short('c')
                 .long("screen-capture")
@@ -66,6 +71,7 @@ fn main() {
                 .action(ArgAction::SetTrue)
                 .default_value("false"),
         );
+    }
     let matches = command.get_matches();
     let rom = matches.get_one::<String>("lsdj").unwrap().as_str();
     let save = matches.get_one::<String>("save").unwrap().clone();
@@ -74,7 +80,6 @@ fn main() {
     let length = matches.get_one::<u32>("length").unwrap().to_owned();
     #[cfg(feature = "png")]
     let screen_capture = matches.get_flag("screen-capture").to_owned();
-
     let mut romfile = Vec::new();
     File::open(rom)
         .expect("Failed to open ROM file")
@@ -96,7 +101,7 @@ fn main() {
     println!("Loading song...");
     device_wait(&mut device, 10.0);
     load_song(&mut device);
-    println!("Loaded! Playing song");
+    println!("Loaded! Playing song...");
     #[cfg(feature = "png")]
     if screen_capture {
         let mut encoder = png::Encoder::new(
@@ -117,6 +122,7 @@ fn main() {
         .start();
     let max = length * TICKS_PER_SECOND;
     let mut ticks = 0;
+    let started = SystemTime::now();
     key_press(&mut device, Start, 0.1);
     while ticks < max {
         ticks += device.do_cycle();
@@ -125,6 +131,13 @@ fn main() {
             let percent = ((ticks as f32 / max as f32) * 100.0).round() as u32;
             spinner.update(format!("Running emulator: steps: {:2}%...", percent));
         }
+        #[cfg(not(feature = "spinner"))]
+        {
+            if ticks % (TICKS_PER_SECOND) == 0 {
+                print!(".");
+                std::io::stdout().flush().unwrap();
+            }
+        }
     }
     #[cfg(feature = "spinner")]
     {
@@ -132,6 +145,8 @@ fn main() {
         spinner.close();
     }
     println!();
+    let elapsed = started.elapsed().unwrap().as_secs();
+    println!("Finished exporting! Rendered {length} seconds in {elapsed}s realtime.");
 }
 
 fn device_wait(device: &mut Device, seconds: f32) {
@@ -168,5 +183,5 @@ fn load_song(device: &mut Device) {
     key_press(device, Left, 0.1);
     key_press(device, A, 0.1);
     device_wait(device, 10.0);
-    many_key_press(device, Vec::from([Select, Down]), 0.1);
+    many_key_press(device, Vec::from([Select, Down]), 1.0);
 }
